@@ -1,149 +1,337 @@
 package com.lozadesuu.collections;
 
-public class MyTreeMap<K extends Comparable<K>, V> implements MyMap<K, V> {
+import java.util.Objects;
+
+/**
+ * Красно-чёрное дерево (аналог TreeMap) с поддержкой null-значений (V может быть null).
+ * Ключи K: не-null, K extends Comparable<K>.
+ */
+public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, V> {
     private MyTreeNode<K, V> root;
     private int size;
 
-    public MyTreeMap() {
-        this.root = null;
-        this.size = 0;
+    // --------------------- базовые хелперы ---------------------
+
+    private boolean isRed(MyTreeNode<K, V> n) { return n != null && n.isRed; }
+
+    private void rotateLeft(MyTreeNode<K, V> x) {
+        MyTreeNode<K, V> y = x.right;
+        x.right = y.left;
+        if (y.left != null) y.left.parent = x;
+        y.parent = x.parent;
+        if (x.parent == null) root = y;
+        else if (x == x.parent.left) x.parent.left = y;
+        else x.parent.right = y;
+        y.left = x;
+        x.parent = y;
     }
+
+    private void rotateRight(MyTreeNode<K, V> x) {
+        MyTreeNode<K, V> y = x.left;
+        x.left = y.right;
+        if (y.right != null) y.right.parent = x;
+        y.parent = x.parent;
+        if (x.parent == null) root = y;
+        else if (x == x.parent.right) x.parent.right = y;
+        else x.parent.left = y;
+        y.right = x;
+        x.parent = y;
+    }
+
+    private MyTreeNode<K, V> findMin(MyTreeNode<K, V> n) {
+        while (n.left != null) n = n.left;
+        return n;
+    }
+    private MyTreeNode<K, V> findMax(MyTreeNode<K, V> n) {
+        while (n.right != null) n = n.right;
+        return n;
+    }
+
+    private MyTreeNode<K, V> getNode(MyTreeNode<K, V> n, K key) {
+        while (n != null) {
+            int c = key.compareTo(n.key);
+            if (c < 0) n = n.left;
+            else if (c > 0) n = n.right;
+            else return n;
+        }
+        return null;
+    }
+
+    // --------------------- интерфейс MyMap ---------------------
 
     @Override
     public void put(K key, V value) {
-        if (key == null) {
-            throw new IllegalArgumentException("Ключ не может быть null");
-        }
-        root = putHelper(root, key, value);
-    }
+        if (key == null) throw new IllegalArgumentException("key must not be null");
 
-    private MyTreeNode<K, V> putHelper(MyTreeNode<K, V> node, K key, V value) {
-        if (node == null) {
-            size++;
-            return new MyTreeNode<>(key, value);
+        if (root == null) {
+            root = new MyTreeNode<>(key, value); // value может быть null
+            root.isRed = false; // корень чёрный
+            size = 1;
+            return;
         }
 
-        int cmp = key.compareTo(node.key);
-
-        if (cmp < 0) {
-            node.left = putHelper(node.left, key, value);
-        } else if (cmp > 0) {
-            node.right = putHelper(node.right, key, value);
-        } else {
-            node.value = value;
+        MyTreeNode<K, V> p = root, parent = null;
+        int cmp = 0;
+        while (p != null) {
+            parent = p;
+            cmp = key.compareTo(p.key);
+            if (cmp < 0) p = p.left;
+            else if (cmp > 0) p = p.right;
+            else { // ключ существует — просто заменяем значение (может быть null)
+                p.value = value;
+                return;
+            }
         }
 
-        return node;
+        MyTreeNode<K, V> x = new MyTreeNode<>(key, value);
+        x.parent = parent;
+        if (cmp < 0) parent.left = x; else parent.right = x;
+        size++;
+        fixAfterInsertion(x);
     }
 
     @Override
     public V get(K key) {
-        if (key == null) {
-            return null;
-        }
-        MyTreeNode<K, V> node = getNode(root, key);
-        return node != null ? node.value : null;
-    }
-
-    private MyTreeNode<K, V> getNode(MyTreeNode<K, V> node, K key) {
-        if (node == null) {
-            return null;
-        }
-
-        int cmp = key.compareTo(node.key);
-
-        if (cmp < 0) {
-            return getNode(node.left, key);
-        } else if (cmp > 0) {
-            return getNode(node.right, key);
-        } else {
-            return node;
-        }
+        if (key == null) return null;
+        MyTreeNode<K, V> n = getNode(root, key);
+        return n == null ? null : n.value; // null допустим как реальное значение
     }
 
     @Override
     public void remove(K key) {
-        if (key == null) {
-            return;
-        }
-        root = removeHelper(root, key);
-    }
-
-    private MyTreeNode<K, V> removeHelper(MyTreeNode<K, V> node, K key) {
-        if (node == null) {
-            return null;
-        }
-
-        int cmp = key.compareTo(node.key);
-
-        if (cmp < 0) {
-            node.left = removeHelper(node.left, key);
-        } else if (cmp > 0) {
-            node.right = removeHelper(node.right, key);
-        } else {
-            size--;
-
-            if (node.left == null && node.right == null) {
-                return null;
-            }
-            if (node.left == null) {
-                return node.right;
-            }
-            if (node.right == null) {
-                return node.left;
-            }
-
-            MyTreeNode<K, V> minNode = findMin(node.right);
-            node.key = minNode.key;
-            node.value = minNode.value;
-            node.right = removeHelper(node.right, minNode.key);
-            size++;
-        }
-
-        return node;
-    }
-
-    private MyTreeNode<K, V> findMin(MyTreeNode<K, V> node) {
-        while (node.left != null) {
-            node = node.left;
-        }
-        return node;
+        if (key == null) return;
+        MyTreeNode<K, V> n = getNode(root, key);
+        if (n == null) return;
+        deleteNode(n);
+        size--;
     }
 
     @Override
     public boolean containsKey(K key) {
-        return get(key) != null;
+        if (key == null) return false;
+        return getNode(root, key) != null; // корректно при null-значениях
     }
 
-    @Override
-    public int size() {
-        return size;
+    @Override public int size() { return size; }
+    @Override public boolean isEmpty() { return size == 0; }
+    @Override public void clear() { root = null; size = 0; }
+
+    // --------------------- RB-вставка ---------------------
+
+    private void fixAfterInsertion(MyTreeNode<K, V> x) {
+        while (x != root && isRed(x.parent)) {
+            if (x.parent == x.parent.parent.left) {
+                MyTreeNode<K, V> y = x.parent.parent.right; // дядя
+                if (isRed(y)) { // перекраска
+                    x.parent.isRed = false;
+                    y.isRed = false;
+                    x.parent.parent.isRed = true;
+                    x = x.parent.parent;
+                } else {
+                    if (x == x.parent.right) {
+                        x = x.parent;
+                        rotateLeft(x);
+                    }
+                    x.parent.isRed = false;
+                    x.parent.parent.isRed = true;
+                    rotateRight(x.parent.parent);
+                }
+            } else { // зеркально
+                MyTreeNode<K, V> y = x.parent.parent.left;
+                if (isRed(y)) {
+                    x.parent.isRed = false;
+                    y.isRed = false;
+                    x.parent.parent.isRed = true;
+                    x = x.parent.parent;
+                } else {
+                    if (x == x.parent.left) {
+                        x = x.parent;
+                        rotateRight(x);
+                    }
+                    x.parent.isRed = false;
+                    x.parent.parent.isRed = true;
+                    rotateLeft(x.parent.parent);
+                }
+            }
+        }
+        root.isRed = false;
     }
 
-    @Override
-    public void clear() {
-        root = null;
-        size = 0;
-    }
+    // --------------------- RB-удаление ---------------------
 
-    public void print() {
-        printHelper(root, "", true);
-    }
-
-    private void printHelper(MyTreeNode<K, V> node, String prefix, boolean isTail) {
-        if (node == null) {
-            return;
+    private void deleteNode(MyTreeNode<K, V> z) {
+        // если два ребёнка — заменить на преемника
+        if (z.left != null && z.right != null) {
+            MyTreeNode<K, V> s = findMin(z.right);
+            z.key = s.key;
+            z.value = s.value; // значение тоже переносим (может быть null)
+            z = s;
         }
 
-        System.out.println(prefix + (isTail ? "└── " : "├── ") + node.key + ": " + node.value);
+        MyTreeNode<K, V> rep = (z.left != null) ? z.left : z.right;
 
-        if (node.left != null || node.right != null) {
-            if (node.left != null) {
-                printHelper(node.left, prefix + (isTail ? "    " : "│   "), node.right == null);
+        if (rep != null) {
+            rep.parent = z.parent;
+            if (z.parent == null) root = rep;
+            else if (z == z.parent.left) z.parent.left = rep;
+            else z.parent.right = rep;
+
+            // очищаем z
+            z.left = z.right = z.parent = null;
+
+            if (!z.isRed) fixAfterDeletion(rep);
+        } else if (z.parent == null) {
+            root = null;
+        } else {
+            if (!z.isRed) fixAfterDeletion(z);
+            if (z.parent != null) {
+                if (z == z.parent.left) z.parent.left = null;
+                else if (z == z.parent.right) z.parent.right = null;
+                z.parent = null;
             }
-            if (node.right != null) {
-                printHelper(node.right, prefix + (isTail ? "    " : "│   "), true);
+        }
+    }
+
+    private void fixAfterDeletion(MyTreeNode<K, V> x) {
+        while (x != root && !isRed(x)) {
+            if (x == x.parent.left) {
+                MyTreeNode<K, V> sib = x.parent.right;
+                if (isRed(sib)) {
+                    sib.isRed = false;
+                    x.parent.isRed = true;
+                    rotateLeft(x.parent);
+                    sib = x.parent.right;
+                }
+                boolean sibLeftRed  = sib != null && isRed(sib.left);
+                boolean sibRightRed = sib != null && isRed(sib.right);
+                if (!sibLeftRed && !sibRightRed) {
+                    if (sib != null) sib.isRed = true;
+                    x = x.parent;
+                } else {
+                    if (!sibRightRed) {
+                        if (sib != null && sib.left != null) sib.left.isRed = false;
+                        if (sib != null) {
+                            sib.isRed = true;
+                            rotateRight(sib);
+                            sib = x.parent.right;
+                        }
+                    }
+                    if (sib != null) {
+                        sib.isRed = x.parent.isRed;
+                        x.parent.isRed = false;
+                        if (sib.right != null) sib.right.isRed = false;
+                    }
+                    rotateLeft(x.parent);
+                    x = root;
+                }
+            } else {
+                MyTreeNode<K, V> sib = x.parent.left;
+                if (isRed(sib)) {
+                    sib.isRed = false;
+                    x.parent.isRed = true;
+                    rotateRight(x.parent);
+                    sib = x.parent.left;
+                }
+                boolean sibRightRed = sib != null && isRed(sib.right);
+                boolean sibLeftRed  = sib != null && isRed(sib.left);
+                if (!sibRightRed && !sibLeftRed) {
+                    if (sib != null) sib.isRed = true;
+                    x = x.parent;
+                } else {
+                    if (!sibLeftRed) {
+                        if (sib != null && sib.right != null) sib.right.isRed = false;
+                        if (sib != null) {
+                            sib.isRed = true;
+                            rotateLeft(sib);
+                            sib = x.parent.left;
+                        }
+                    }
+                    if (sib != null) {
+                        sib.isRed = x.parent.isRed;
+                        x.parent.isRed = false;
+                        if (sib.left != null) sib.left.isRed = false;
+                    }
+                    rotateRight(x.parent);
+                    x = root;
+                }
             }
+        }
+        if (x != null) x.isRed = false;
+    }
+
+    // --------------------- навигационные методы ---------------------
+
+    @Override public K firstKey() { return (root == null) ? null : findMin(root).key; }
+    @Override public K lastKey()  { return (root == null) ? null : findMax(root).key; }
+
+    @Override
+    public Entry<K, V> firstEntry() {
+        if (root == null) return null;
+        MyTreeNode<K, V> n = findMin(root);
+        return new Entry<>(n.key, n.value);
+    }
+
+    @Override
+    public Entry<K, V> lastEntry() {
+        if (root == null) return null;
+        MyTreeNode<K, V> n = findMax(root);
+        return new Entry<>(n.key, n.value);
+    }
+
+    @Override
+    public K lowerKey(K key) {
+        MyTreeNode<K, V> n = root, res = null;
+        while (n != null) {
+            int c = key.compareTo(n.key);
+            if (c <= 0) n = n.left;
+            else { res = n; n = n.right; }
+        }
+        return res == null ? null : res.key;
+    }
+
+    @Override
+    public K floorKey(K key) {
+        MyTreeNode<K, V> n = root, res = null;
+        while (n != null) {
+            int c = key.compareTo(n.key);
+            if (c < 0) n = n.left;
+            else { res = n; if (c == 0) break; n = n.right; }
+        }
+        return res == null ? null : res.key;
+    }
+
+    @Override
+    public K ceilingKey(K key) {
+        MyTreeNode<K, V> n = root, res = null;
+        while (n != null) {
+            int c = key.compareTo(n.key);
+            if (c > 0) n = n.right;
+            else { res = n; if (c == 0) break; n = n.left; }
+        }
+        return res == null ? null : res.key;
+    }
+
+    @Override
+    public K higherKey(K key) {
+        MyTreeNode<K, V> n = root, res = null;
+        while (n != null) {
+            int c = key.compareTo(n.key);
+            if (c >= 0) n = n.right;
+            else { res = n; n = n.left; }
+        }
+        return res == null ? null : res.key;
+    }
+
+    // --------------------- отладка ---------------------
+
+    public void print() { printHelper(root, "", true); }
+    private void printHelper(MyTreeNode<K, V> n, String pref, boolean tail) {
+        if (n == null) return;
+        String col = n.isRed ? "R" : "B";
+        System.out.println(pref + (tail ? "└── " : "├── ") + n.key + " -> " + n.value + " [" + col + "]");
+        if (n.left != null || n.right != null) {
+            if (n.left != null)  printHelper(n.left,  pref + (tail ? "    " : "│   "), n.right == null);
+            if (n.right != null) printHelper(n.right, pref + (tail ? "    " : "│   "), true);
         }
     }
 }

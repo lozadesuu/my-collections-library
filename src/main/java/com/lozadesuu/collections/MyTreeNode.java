@@ -1,15 +1,15 @@
 package com.lozadesuu.collections;
 
-public class MyTreeNode<K, V> {
+/** Узел КЧ-дерева (значение может быть null). */
+class MyTreeNode<K, V> {
     K key;
-    V value;
-    MyTreeNode<K, V> left;
-    MyTreeNode<K, V> right;
+    V value; // допускаем null
+    MyTreeNode<K, V> left, right, parent;
+    boolean isRed; // true = RED, false = BLACK
 
-    public MyTreeNode(K key, V value) {
+    MyTreeNode(K key, V value) {
         this.key = key;
         this.value = value;
-        this.left = null;
-        this.right = null;
+        this.isRed = true; // новый узел всегда красный
     }
 }
