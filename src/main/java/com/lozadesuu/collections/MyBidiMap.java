@@ -5,7 +5,6 @@ import java.util.Objects;
 /**
  * Двунаправленная карта на двух MyTreeMap.
  * ВНИМАНИЕ: значения V используются как ключ во втором дереве → V не может быть null.
- * (MyTreeMap допускает null-значения, но именно в MyBidiMap это ограничение необходимо.)
  */
 public class MyBidiMap<K extends Comparable<K>, V extends Comparable<V>> implements MyMap<K, V> {
     private final MyTreeMap<K, V> keyToValue = new MyTreeMap<>();
@@ -20,24 +19,32 @@ public class MyBidiMap<K extends Comparable<K>, V extends Comparable<V>> impleme
         if (Objects.equals(oldV, value)) return;
 
         if (oldV != null) valueToKey.remove(oldV);
+
         K oldK = valueToKey.get(value);
-        if (oldK != null) keyToValue.remove(oldK);
+        if (oldK != null) {
+            // Если тот же ключ переназначает то же значение, ничего не делаем
+            if (oldK.equals(key)) return;
+            keyToValue.remove(oldK);
+        }
 
         keyToValue.put(key, value);
         valueToKey.put(value, key);
     }
 
     @Override
-    public V get(K key) { return keyToValue.get(key); }
+    public V get(K key) {
+        if (key == null) throw new IllegalArgumentException("key must not be null");
+        return keyToValue.get(key);
+    }
 
-    /** Обратный поиск: ключ по значению (значение не может быть null). */
     public K getKey(V value) {
-        if (value == null) return null;
+        if (value == null) throw new IllegalArgumentException("value must not be null in BidiMap");
         return valueToKey.get(value);
     }
 
     @Override
     public void remove(K key) {
+        if (key == null) throw new IllegalArgumentException("key must not be null");
         V v = keyToValue.get(key);
         if (v != null) {
             keyToValue.remove(key);
@@ -45,9 +52,8 @@ public class MyBidiMap<K extends Comparable<K>, V extends Comparable<V>> impleme
         }
     }
 
-    /** Удаление по значению. */
     public void removeValue(V value) {
-        if (value == null) return;
+        if (value == null) throw new IllegalArgumentException("value must not be null in BidiMap");
         K k = valueToKey.get(value);
         if (k != null) {
             valueToKey.remove(value);
@@ -55,8 +61,16 @@ public class MyBidiMap<K extends Comparable<K>, V extends Comparable<V>> impleme
         }
     }
 
-    @Override public boolean containsKey(K key) { return keyToValue.containsKey(key); }
-    public boolean containsValue(V value) { return value != null && valueToKey.containsKey(value); }
+    @Override public boolean containsKey(K key) {
+        if (key == null) return false;
+        return keyToValue.containsKey(key);
+    }
+
+    public boolean containsValue(V value) {
+        if (value == null) return false;
+        return valueToKey.containsKey(value);
+    }
+
     @Override public int size() { return keyToValue.size(); }
     @Override public boolean isEmpty() { return keyToValue.isEmpty(); }
     @Override public void clear() { keyToValue.clear(); valueToKey.clear(); }

@@ -64,8 +64,8 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
         if (key == null) throw new IllegalArgumentException("key must not be null");
 
         if (root == null) {
-            root = new MyTreeNode<>(key, value); // value может быть null
-            root.isRed = false; // корень чёрный
+            root = new MyTreeNode<>(key, value);
+            root.isRed = false;
             size = 1;
             return;
         }
@@ -77,7 +77,7 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
             cmp = key.compareTo(p.key);
             if (cmp < 0) p = p.left;
             else if (cmp > 0) p = p.right;
-            else { // ключ существует — просто заменяем значение (может быть null)
+            else {
                 p.value = value;
                 return;
             }
@@ -92,14 +92,14 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
 
     @Override
     public V get(K key) {
-        if (key == null) return null;
+        if (key == null) throw new IllegalArgumentException("key must not be null");
         MyTreeNode<K, V> n = getNode(root, key);
-        return n == null ? null : n.value; // null допустим как реальное значение
+        return n == null ? null : n.value;
     }
 
     @Override
     public void remove(K key) {
-        if (key == null) return;
+        if (key == null) throw new IllegalArgumentException("key must not be null");
         MyTreeNode<K, V> n = getNode(root, key);
         if (n == null) return;
         deleteNode(n);
@@ -109,7 +109,7 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
     @Override
     public boolean containsKey(K key) {
         if (key == null) return false;
-        return getNode(root, key) != null; // корректно при null-значениях
+        return getNode(root, key) != null;
     }
 
     @Override public int size() { return size; }
@@ -121,8 +121,8 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
     private void fixAfterInsertion(MyTreeNode<K, V> x) {
         while (x != root && isRed(x.parent)) {
             if (x.parent == x.parent.parent.left) {
-                MyTreeNode<K, V> y = x.parent.parent.right; // дядя
-                if (isRed(y)) { // перекраска
+                MyTreeNode<K, V> y = x.parent.parent.right;
+                if (isRed(y)) {
                     x.parent.isRed = false;
                     y.isRed = false;
                     x.parent.parent.isRed = true;
@@ -136,7 +136,7 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
                     x.parent.parent.isRed = true;
                     rotateRight(x.parent.parent);
                 }
-            } else { // зеркально
+            } else {
                 MyTreeNode<K, V> y = x.parent.parent.left;
                 if (isRed(y)) {
                     x.parent.isRed = false;
@@ -160,11 +160,10 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
     // --------------------- RB-удаление ---------------------
 
     private void deleteNode(MyTreeNode<K, V> z) {
-        // если два ребёнка — заменить на преемника
         if (z.left != null && z.right != null) {
             MyTreeNode<K, V> s = findMin(z.right);
             z.key = s.key;
-            z.value = s.value; // значение тоже переносим (может быть null)
+            z.value = s.value;
             z = s;
         }
 
@@ -176,7 +175,6 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
             else if (z == z.parent.left) z.parent.left = rep;
             else z.parent.right = rep;
 
-            // очищаем z
             z.left = z.right = z.parent = null;
 
             if (!z.isRed) fixAfterDeletion(rep);
@@ -196,25 +194,31 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
         while (x != root && !isRed(x)) {
             if (x == x.parent.left) {
                 MyTreeNode<K, V> sib = x.parent.right;
+
                 if (isRed(sib)) {
                     sib.isRed = false;
                     x.parent.isRed = true;
                     rotateLeft(x.parent);
                     sib = x.parent.right;
                 }
-                boolean sibLeftRed  = sib != null && isRed(sib.left);
-                boolean sibRightRed = sib != null && isRed(sib.right);
+
+                if (sib == null) {
+                    x = x.parent;
+                    continue;
+                }
+
+                boolean sibLeftRed  = isRed(sib.left);
+                boolean sibRightRed = isRed(sib.right);
+
                 if (!sibLeftRed && !sibRightRed) {
-                    if (sib != null) sib.isRed = true;
+                    sib.isRed = true;
                     x = x.parent;
                 } else {
                     if (!sibRightRed) {
-                        if (sib != null && sib.left != null) sib.left.isRed = false;
-                        if (sib != null) {
-                            sib.isRed = true;
-                            rotateRight(sib);
-                            sib = x.parent.right;
-                        }
+                        if (sib.left != null) sib.left.isRed = false;
+                        sib.isRed = true;
+                        rotateRight(sib);
+                        sib = x.parent.right;
                     }
                     if (sib != null) {
                         sib.isRed = x.parent.isRed;
@@ -226,25 +230,31 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
                 }
             } else {
                 MyTreeNode<K, V> sib = x.parent.left;
+
                 if (isRed(sib)) {
                     sib.isRed = false;
                     x.parent.isRed = true;
                     rotateRight(x.parent);
                     sib = x.parent.left;
                 }
-                boolean sibRightRed = sib != null && isRed(sib.right);
-                boolean sibLeftRed  = sib != null && isRed(sib.left);
+
+                if (sib == null) {
+                    x = x.parent;
+                    continue;
+                }
+
+                boolean sibRightRed = isRed(sib.right);
+                boolean sibLeftRed  = isRed(sib.left);
+
                 if (!sibRightRed && !sibLeftRed) {
-                    if (sib != null) sib.isRed = true;
+                    sib.isRed = true;
                     x = x.parent;
                 } else {
                     if (!sibLeftRed) {
-                        if (sib != null && sib.right != null) sib.right.isRed = false;
-                        if (sib != null) {
-                            sib.isRed = true;
-                            rotateLeft(sib);
-                            sib = x.parent.left;
-                        }
+                        if (sib.right != null) sib.right.isRed = false;
+                        sib.isRed = true;
+                        rotateLeft(sib);
+                        sib = x.parent.left;
                     }
                     if (sib != null) {
                         sib.isRed = x.parent.isRed;
@@ -280,6 +290,7 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
 
     @Override
     public K lowerKey(K key) {
+        if (key == null) throw new IllegalArgumentException("key must not be null");
         MyTreeNode<K, V> n = root, res = null;
         while (n != null) {
             int c = key.compareTo(n.key);
@@ -291,6 +302,7 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
 
     @Override
     public K floorKey(K key) {
+        if (key == null) throw new IllegalArgumentException("key must not be null");
         MyTreeNode<K, V> n = root, res = null;
         while (n != null) {
             int c = key.compareTo(n.key);
@@ -302,6 +314,7 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
 
     @Override
     public K ceilingKey(K key) {
+        if (key == null) throw new IllegalArgumentException("key must not be null");
         MyTreeNode<K, V> n = root, res = null;
         while (n != null) {
             int c = key.compareTo(n.key);
@@ -313,6 +326,7 @@ public class MyTreeMap<K extends Comparable<K>, V> implements MyNavigableMap<K, 
 
     @Override
     public K higherKey(K key) {
+        if (key == null) throw new IllegalArgumentException("key must not be null");
         MyTreeNode<K, V> n = root, res = null;
         while (n != null) {
             int c = key.compareTo(n.key);
