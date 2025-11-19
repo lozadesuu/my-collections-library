@@ -1,11 +1,7 @@
-
 package com.lozadesuu.collections;
 
 import java.util.Objects;
 
-/**
- * Простая пара ключ-значение (значение может быть null).
- */
 public class Entry<K, V> {
     private final K key;
     private V value;
@@ -23,13 +19,8 @@ public class Entry<K, V> {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Entry<?, ?> entry = (Entry<?, ?>) o;
-        return Objects.equals(key, entry.key) && Objects.equals(value, entry.value);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(key, value);
+        Entry<?, ?> other = (Entry<?, ?>) o;
+        return Objects.equals(key, other.key) && Objects.equals(value, other.value);
     }
 
     @Override
